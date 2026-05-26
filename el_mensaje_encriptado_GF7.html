@@ -1,0 +1,777 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>El Mensaje Encriptado — GF(7)</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #12121a;
+    --surface2: #1a1a26;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.15);
+    --text: #f0f0f8;
+    --muted: #7070a0;
+    --accent: #6c63ff;
+    --accent2: #00e5a0;
+    --accent3: #ff6b6b;
+    --accent4: #ffd93d;
+    --mono: 'Space Mono', monospace;
+    --sans: 'Syne', sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(108,99,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(108,99,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+  .wrap { position: relative; z-index: 1; max-width: 900px; margin: 0 auto; padding: 0 20px 60px; }
+
+  header {
+    padding: 40px 0 32px;
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 16px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 32px;
+  }
+  .header-left h1 {
+    font-family: var(--sans);
+    font-weight: 800;
+    font-size: clamp(24px, 4vw, 38px);
+    letter-spacing: -0.03em;
+    line-height: 1.1;
+    background: linear-gradient(135deg, #fff 30%, var(--accent));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+  .header-left p { font-family: var(--mono); font-size: 12px; color: var(--muted); margin-top: 8px; letter-spacing: 0.05em; }
+  .badge-header {
+    background: rgba(108,99,255,0.15);
+    border: 1px solid rgba(108,99,255,0.35);
+    color: var(--accent);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 4px;
+    letter-spacing: 0.08em;
+    align-self: flex-start;
+    margin-top: 4px;
+  }
+
+  .tabs {
+    display: flex;
+    gap: 2px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 4px;
+    margin-bottom: 28px;
+    overflow-x: auto;
+  }
+  .tab {
+    flex: 1;
+    min-width: 100px;
+    padding: 10px 16px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--muted);
+    background: none;
+    border: none;
+    border-radius: 7px;
+    cursor: pointer;
+    transition: all 0.2s;
+    letter-spacing: 0.05em;
+    white-space: nowrap;
+  }
+  .tab:hover { color: var(--text); background: var(--surface2); }
+  .tab.active { background: var(--accent); color: #fff; font-weight: 700; }
+
+  .section { display: none; animation: fadeIn 0.25s ease; }
+  .section.active { display: block; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 22px 24px;
+    margin-bottom: 16px;
+  }
+  .card-title {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    color: var(--muted);
+    margin-bottom: 14px;
+    text-transform: uppercase;
+  }
+  .formula {
+    font-family: var(--mono);
+    font-size: 16px;
+    color: var(--accent2);
+    background: rgba(0,229,160,0.07);
+    border: 1px solid rgba(0,229,160,0.2);
+    border-radius: 8px;
+    padding: 12px 18px;
+    margin: 12px 0;
+    letter-spacing: 0.04em;
+  }
+
+  .input-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; margin-bottom: 16px; }
+  .input-group { display: flex; flex-direction: column; gap: 6px; flex: 1; min-width: 160px; }
+  .input-group label { font-family: var(--mono); font-size: 11px; color: var(--muted); letter-spacing: 0.08em; }
+  .input-group input, .input-group select {
+    padding: 10px 14px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 14px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .input-group input:focus, .input-group select:focus { border-color: var(--accent); }
+  select option { background: var(--surface2); }
+
+  .btn {
+    padding: 11px 22px;
+    font-family: var(--mono);
+    font-size: 13px;
+    font-weight: 700;
+    border-radius: 8px;
+    border: 1px solid var(--border2);
+    background: var(--surface2);
+    color: var(--text);
+    cursor: pointer;
+    transition: all 0.15s;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn:active { transform: scale(0.97); }
+  .btn-accent { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .btn-accent:hover { background: #5a52e8; border-color: #5a52e8; color: #fff; }
+  .btn-green { background: rgba(0,229,160,0.12); border-color: var(--accent2); color: var(--accent2); }
+  .btn-green:hover { background: rgba(0,229,160,0.2); color: var(--accent2); }
+
+  .char-grid { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+  .char-cell {
+    width: 58px; height: 68px;
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 4px;
+    transition: all 0.2s;
+  }
+  .char-cell:hover { border-color: var(--accent); }
+  .char-cell .cc-char { font-family: var(--sans); font-size: 20px; font-weight: 700; color: var(--text); }
+  .char-cell .cc-num { font-family: var(--mono); font-size: 10px; color: var(--muted); }
+  .char-cell.enc { border-color: rgba(108,99,255,0.4); background: rgba(108,99,255,0.06); }
+  .char-cell.dec { border-color: rgba(0,229,160,0.4); background: rgba(0,229,160,0.06); }
+
+  .metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-top: 16px; }
+  .metric { background: var(--surface2); border-radius: 10px; padding: 14px 16px; border: 1px solid var(--border); }
+  .metric .m-label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.08em; margin-bottom: 8px; }
+  .metric .m-val { font-family: var(--mono); font-size: 18px; font-weight: 700; color: var(--text); word-break: break-all; }
+  .metric.blue { border-color: rgba(108,99,255,0.35); background: rgba(108,99,255,0.08); }
+  .metric.blue .m-val { color: #a09bff; }
+  .metric.green { border-color: rgba(0,229,160,0.35); background: rgba(0,229,160,0.08); }
+  .metric.green .m-val { color: var(--accent2); }
+  .metric.yellow { border-color: rgba(255,217,61,0.35); background: rgba(255,217,61,0.08); }
+  .metric.yellow .m-val { color: var(--accent4); }
+
+  .table-wrap { overflow-x: auto; margin: 10px 0; border-radius: 8px; border: 1px solid var(--border); }
+  table { border-collapse: collapse; width: 100%; font-family: var(--mono); font-size: 13px; }
+  th, td { padding: 9px 13px; border: 1px solid var(--border); text-align: center; color: var(--text); }
+  th { background: var(--surface2); color: var(--muted); font-size: 11px; letter-spacing: 0.06em; }
+  td:hover { background: rgba(108,99,255,0.1); cursor: default; }
+  .cell-hl { background: rgba(108,99,255,0.15); color: #a09bff; font-weight: 700; }
+  .cell-diag { background: rgba(0,229,160,0.12); color: var(--accent2); font-weight: 700; }
+  tr.result-row td:last-child { color: var(--accent2); font-weight: 700; }
+
+  .steps { list-style: none; }
+  .steps li { display: flex; gap: 16px; align-items: flex-start; padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .steps li:last-child { border-bottom: none; }
+  .step-num {
+    width: 28px; height: 28px; border-radius: 50%;
+    background: var(--accent);
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 12px; font-weight: 700;
+    color: #fff; flex-shrink: 0; margin-top: 2px;
+  }
+  .step-body { font-size: 14px; line-height: 1.6; color: var(--text); flex: 1; }
+  .step-body strong { color: var(--accent2); font-weight: 700; }
+  .step-time {
+    font-family: var(--mono); font-size: 10px;
+    background: rgba(255,217,61,0.12);
+    border: 1px solid rgba(255,217,61,0.25);
+    color: var(--accent4);
+    padding: 3px 8px; border-radius: 4px;
+    white-space: nowrap; align-self: center;
+  }
+
+  .board { display: grid; grid-template-columns: 1fr auto 1fr; gap: 0; margin: 20px 0; align-items: stretch; }
+  .node { border: 1px solid var(--border2); border-radius: 12px; padding: 20px; min-height: 200px; }
+  .node.emisor { border-color: rgba(108,99,255,0.4); background: rgba(108,99,255,0.05); }
+  .node.receptor { border-color: rgba(0,229,160,0.4); background: rgba(0,229,160,0.05); }
+  .node-title { font-family: var(--mono); font-size: 11px; letter-spacing: 0.1em; margin-bottom: 12px; }
+  .emisor .node-title { color: var(--accent); }
+  .receptor .node-title { color: var(--accent2); }
+  .channel { display: flex; align-items: center; justify-content: center; padding: 0 8px; position: relative; }
+  .channel-line { width: 2px; height: 100%; background: linear-gradient(to bottom, rgba(108,99,255,0.3), rgba(0,229,160,0.3)); position: relative; display: flex; align-items: center; justify-content: center; }
+  .channel-label { font-family: var(--mono); font-size: 10px; color: var(--muted); letter-spacing: 0.12em; writing-mode: vertical-rl; transform: rotate(180deg); }
+
+  .stream { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0; }
+  .sym {
+    width: 40px; height: 40px;
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-family: var(--mono); font-size: 15px; font-weight: 700;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+  }
+  .sym.s-blue { background: rgba(108,99,255,0.2); color: #a09bff; border-color: rgba(108,99,255,0.3); }
+  .sym.s-green { background: rgba(0,229,160,0.15); color: var(--accent2); border-color: rgba(0,229,160,0.3); }
+  .sym.s-yellow { background: rgba(255,217,61,0.15); color: var(--accent4); border-color: rgba(255,217,61,0.25); }
+
+  .mapeo-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr)); gap: 8px; margin: 12px 0; }
+  .mapeo-cell { border: 1px solid var(--border2); border-radius: 8px; padding: 10px 8px; text-align: center; }
+  .mapeo-cell .mc-char { font-size: 18px; font-weight: 700; font-family: var(--sans); color: var(--text); }
+  .mapeo-cell .mc-num { font-family: var(--mono); font-size: 12px; margin-top: 4px; padding: 2px 6px; border-radius: 4px; display: inline-block; }
+
+  .quiz-question { font-size: 20px; font-weight: 700; font-family: var(--mono); color: var(--accent4); margin: 10px 0 20px; letter-spacing: 0.02em; white-space: pre-line; }
+  .quiz-options { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 16px; }
+  .quiz-opt {
+    padding: 14px 16px;
+    background: var(--surface2);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    font-family: var(--mono); font-size: 20px; font-weight: 700;
+    color: var(--text);
+    cursor: pointer; text-align: center;
+    transition: all 0.15s;
+  }
+  .quiz-opt:hover { border-color: var(--accent); color: var(--accent); }
+  .quiz-opt.correct { background: rgba(0,229,160,0.15); border-color: var(--accent2); color: var(--accent2); pointer-events: none; }
+  .quiz-opt.wrong { background: rgba(255,107,107,0.12); border-color: var(--accent3); color: var(--accent3); pointer-events: none; }
+  .quiz-opt.reveal-correct { background: rgba(0,229,160,0.1); border-color: rgba(0,229,160,0.4); color: var(--accent2); pointer-events: none; }
+  .quiz-opt:disabled { opacity: 0.5; }
+  .quiz-feedback { font-family: var(--mono); font-size: 13px; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; }
+  .quiz-feedback.ok { background: rgba(0,229,160,0.1); border: 1px solid rgba(0,229,160,0.3); color: var(--accent2); }
+  .quiz-feedback.fail { background: rgba(255,107,107,0.1); border: 1px solid rgba(255,107,107,0.3); color: var(--accent3); }
+  .score-bar { height: 6px; background: var(--surface2); border-radius: 3px; margin-bottom: 16px; overflow: hidden; }
+  .score-fill { height: 100%; background: var(--accent); border-radius: 3px; transition: width 0.4s; }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: var(--surface); }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+  @media (max-width: 600px) {
+    .board { grid-template-columns: 1fr; }
+    .channel { display: none; }
+    .quiz-options { grid-template-columns: 1fr; }
+    header { flex-direction: column; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="header-left">
+      <h1>El Mensaje Encriptado</h1>
+      <p>LABORATORIO INTERACTIVO · CAMPOS DE GALOIS · GF(7)</p>
+      <p style="margin-top:4px;">Fundación Universitaria Compensar · Teoría de la Información</p>
+    </div>
+    <span class="badge-header">GF(7) = {0,1,2,3,4,5,6}</span>
+  </header>
+
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('cifrar')">01 · Cifrar</button>
+    <button class="tab" onclick="switchTab('descifrar')">02 · Descifrar</button>
+    <button class="tab" onclick="switchTab('tablas')">03 · Tablas GF(7)</button>
+    <button class="tab" onclick="switchTab('juego')">04 · Juego Clase</button>
+    <button class="tab" onclick="switchTab('quiz')">05 · Quiz</button>
+  </div>
+
+  <!-- ===== CIFRAR ===== -->
+  <div class="section active" id="sec-cifrar">
+    <div class="card">
+      <p class="card-title">NODO EMISOR — cifrado simétrico en GF(7)</p>
+      <div class="formula">C = (M + K) mod 7</div>
+      <div class="input-row">
+        <div class="input-group">
+          <label>MENSAJE EN TEXTO PLANO</label>
+          <input type="text" id="inp-msg" value="HOLA" maxlength="20" oninput="cifrar()">
+        </div>
+        <div class="input-group" style="max-width:120px;">
+          <label>CLAVE K</label>
+          <select id="inp-k" onchange="cifrar()">
+            <option value="1">K = 1</option><option value="2">K = 2</option><option value="3">K = 3</option>
+            <option value="4" selected>K = 4</option><option value="5">K = 5</option><option value="6">K = 6</option>
+          </select>
+        </div>
+        <button class="btn btn-accent" onclick="cifrar()">Calcular</button>
+      </div>
+      <p class="card-title" style="margin-top:8px;">Mapeo carácter → valor M en GF(7)</p>
+      <div class="char-grid" id="grid-enc"></div>
+      <div id="steps-enc" style="margin:14px 0; font-family:var(--mono); font-size:13px; color:var(--muted); line-height:2;"></div>
+      <div class="metrics" id="metrics-enc"></div>
+    </div>
+  </div>
+
+  <!-- ===== DESCIFRAR ===== -->
+  <div class="section" id="sec-descifrar">
+    <div class="card">
+      <p class="card-title">NODO RECEPTOR — recuperar mensaje original</p>
+      <div class="formula">M = (C − K + 7) mod 7</div>
+      <div class="input-row">
+        <div class="input-group">
+          <label>CRIPTOGRAMA (números 0-6 separados por espacio)</label>
+          <input type="text" id="inp-crypto" value="5 2 6 1" oninput="descifrar()">
+        </div>
+        <div class="input-group" style="max-width:120px;">
+          <label>CLAVE K</label>
+          <select id="inp-k2" onchange="descifrar()">
+            <option value="1">K = 1</option><option value="2">K = 2</option><option value="3">K = 3</option>
+            <option value="4" selected>K = 4</option><option value="5">K = 5</option><option value="6">K = 6</option>
+          </select>
+        </div>
+        <button class="btn btn-green" onclick="descifrar()">Descifrar</button>
+      </div>
+      <div class="char-grid" id="grid-dec"></div>
+      <div id="steps-dec" style="margin:14px 0; font-family:var(--mono); font-size:13px; color:var(--muted); line-height:2;"></div>
+      <div class="metrics" id="metrics-dec"></div>
+    </div>
+    <div class="card" style="border-color:rgba(255,217,61,0.25); background:rgba(255,217,61,0.04);">
+      <p class="card-title" style="color:var(--accent4);">¿POR QUÉ SE SUMA +7 ANTES DEL MOD?</p>
+      <p style="font-size:14px; line-height:1.7;">En GF(7) no existen representaciones negativas. Si <code style="color:var(--accent2);">C − K</code> resulta negativo, sumar el módulo garantiza que el resultado permanezca en el conjunto válido <code style="color:var(--accent2);">{0, 1, 2, 3, 4, 5, 6}</code>, preservando la estructura algebraica del campo finito.</p>
+      <p style="font-family:var(--mono); font-size:12px; color:var(--muted); margin-top:10px;">Ej: (1 − 4 + 7) mod 7 = 4 mod 7 = 4 ✓</p>
+    </div>
+  </div>
+
+  <!-- ===== TABLAS ===== -->
+  <div class="section" id="sec-tablas">
+    <div class="card">
+      <p class="card-title">TABLA DE SUMA EN GF(7) · (a + b) mod 7</p>
+      <div class="table-wrap" id="tabla-suma"></div>
+    </div>
+    <div class="card">
+      <p class="card-title">TABLA DE MULTIPLICACIÓN EN GF(7) · (a × b) mod 7</p>
+      <div class="table-wrap" id="tabla-mult"></div>
+    </div>
+    <div style="display:grid; grid-template-columns:1fr 1fr; gap:16px;">
+      <div class="card">
+        <p class="card-title">INVERSOS ADITIVOS</p>
+        <p style="font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:12px;">a + (−a) ≡ 0 (mod 7)</p>
+        <div class="mapeo-grid" id="inv-ad"></div>
+      </div>
+      <div class="card">
+        <p class="card-title">INVERSOS MULTIPLICATIVOS</p>
+        <p style="font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:12px;">a · a⁻¹ ≡ 1 (mod 7)</p>
+        <div class="mapeo-grid" id="inv-mul"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ===== JUEGO EN CLASE ===== -->
+  <div class="section" id="sec-juego">
+    <div class="card" style="border-color:rgba(108,99,255,0.35);">
+      <p class="card-title">CONFIGURAR SIMULACIÓN DE CLASE</p>
+      <div class="input-row">
+        <div class="input-group">
+          <label>MENSAJE SECRETO DEL EMISOR</label>
+          <input type="text" id="game-msg" value="CAMPOS GF" maxlength="12" oninput="actualizarJuego()">
+        </div>
+        <div class="input-group" style="max-width:120px;">
+          <label>CLAVE COMPARTIDA K</label>
+          <select id="game-k" onchange="actualizarJuego()">
+            <option value="1">K = 1</option><option value="2">K = 2</option><option value="3">K = 3</option>
+            <option value="4" selected>K = 4</option><option value="5">K = 5</option><option value="6">K = 6</option>
+          </select>
+        </div>
+        <button class="btn btn-accent" onclick="actualizarJuego()">Simular</button>
+      </div>
+      <div id="game-metrics"></div>
+    </div>
+
+    <div class="board">
+      <div class="node emisor" id="game-emisor">
+        <p class="node-title">NODO EMISOR</p>
+        <p style="font-family:var(--mono);font-size:12px;color:var(--muted);">Configura el mensaje arriba...</p>
+      </div>
+      <div class="channel">
+        <div class="channel-line"><span class="channel-label">CANAL PÚBLICO</span></div>
+      </div>
+      <div class="node receptor" id="game-receptor">
+        <p class="node-title">NODO RECEPTOR</p>
+        <p style="font-family:var(--mono);font-size:12px;color:var(--muted);">Esperando transmisión...</p>
+      </div>
+    </div>
+
+    <div class="card">
+      <p class="card-title">PROCESO COMPLETO PASO A PASO</p>
+      <div class="table-wrap" id="game-table"></div>
+    </div>
+
+    <div class="card" style="border-color:rgba(255,107,107,0.2);">
+      <p class="card-title" style="color:var(--accent3);">INSTRUCCIONES DINÁMICA 12 MIN</p>
+      <ul class="steps">
+        <li>
+          <span class="step-num">1</span>
+          <span class="step-body"><strong>División del aula:</strong> Separar en Nodo Emisor y Nodo Receptor. El Emisor recibe el mensaje en papel, sin que el Receptor lo vea.</span>
+          <span class="step-time">2 min</span>
+        </li>
+        <li>
+          <span class="step-num">2</span>
+          <span class="step-body"><strong>Mapeo de caracteres:</strong> El Emisor convierte cada letra a su valor en GF(7) usando la tabla de mapeo (A=0, B=1, ..., cíclico módulo 7).</span>
+          <span class="step-time">2 min</span>
+        </li>
+        <li>
+          <span class="step-num">3</span>
+          <span class="step-body"><strong>Cifrado:</strong> Aplican <code style="color:var(--accent2);font-size:12px;">C = (M + K) mod 7</code> con K = 4 a cada símbolo y registran el criptograma numérico.</span>
+          <span class="step-time">3 min</span>
+        </li>
+        <li>
+          <span class="step-num">4</span>
+          <span class="step-body"><strong>Transmisión pública:</strong> El Emisor entrega solo la secuencia de números al Receptor. Sin letras ni contexto. Esto modela un canal público interceptable.</span>
+          <span class="step-time">1 min</span>
+        </li>
+        <li>
+          <span class="step-num">5</span>
+          <span class="step-body"><strong>Descifrado:</strong> El Receptor aplica <code style="color:var(--accent2);font-size:12px;">M = (C − K + 7) mod 7</code> con K = 4, recuperando los valores y sus caracteres.</span>
+          <span class="step-time">3 min</span>
+        </li>
+        <li>
+          <span class="step-num">6</span>
+          <span class="step-body"><strong>Verificación y reflexión:</strong> Comparan el mensaje reconstruido con el original. Discutir: ¿qué pasaría si un tercero intercepta el criptograma sin conocer K?</span>
+          <span class="step-time">1 min</span>
+        </li>
+      </ul>
+    </div>
+
+    <div class="card">
+      <p class="card-title">TABLA DE MAPEO — PARA IMPRIMIR Y REPARTIR</p>
+      <p style="font-family:var(--mono); font-size:11px; color:var(--muted); margin-bottom:12px;">Mapeo cíclico: GF(7) = índice_letra % 7. Varias letras pueden compartir el mismo valor.</p>
+      <div class="mapeo-grid" id="mapeo-imprimible"></div>
+    </div>
+  </div>
+
+  <!-- ===== QUIZ ===== -->
+  <div class="section" id="sec-quiz">
+    <div class="card">
+      <p class="card-title">QUIZ RÁPIDO — MODO COMPETENCIA EN CLASE</p>
+      <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; flex-wrap:wrap; gap:8px;">
+        <div style="font-family:var(--mono); font-size:12px; color:var(--muted);">Pregunta <span id="q-num">1</span> de <span id="q-total">10</span></div>
+        <div style="font-family:var(--mono); font-size:14px; font-weight:700; color:var(--accent2);">Score: <span id="q-score">0</span></div>
+        <button class="btn" onclick="initQuiz()">↺ Reiniciar</button>
+      </div>
+      <div class="score-bar"><div class="score-fill" id="q-progress" style="width:0%"></div></div>
+      <div id="quiz-area"></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const GF = 7;
+const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ ';
+
+function charVal(ch) {
+  const i = ALPHA.indexOf(ch.toUpperCase());
+  return i === -1 ? null : i % GF;
+}
+function valChars(v) {
+  const res = [];
+  for (let i = 0; i < ALPHA.length; i++) if (i % GF === v) res.push(ALPHA[i]);
+  return res;
+}
+
+// ===== CIFRAR =====
+function cifrar() {
+  const msg = (document.getElementById('inp-msg').value || '').toUpperCase();
+  const K = +document.getElementById('inp-k').value;
+  const pairs = [];
+  for (const ch of msg) {
+    const m = charVal(ch);
+    if (m !== null) pairs.push({ ch, m, c: (m + K) % GF });
+  }
+  document.getElementById('grid-enc').innerHTML = pairs.map(p =>
+    `<div class="char-cell enc">
+      <span class="cc-char">${p.ch === ' ' ? '⎵' : p.ch}</span>
+      <span class="cc-num">M=${p.m} C=${p.c}</span>
+    </div>`
+  ).join('');
+  document.getElementById('steps-enc').innerHTML = pairs.map(p =>
+    `<span style="color:var(--text);">${p.ch === ' ' ? '(esp)' : p.ch}</span> ` +
+    `<span style="color:var(--muted);">→ M=${p.m}, (${p.m}+${K}) mod 7 =</span> ` +
+    `<span style="color:#a09bff;font-weight:700;">C=${p.c}</span><br>`
+  ).join('');
+  const crypto = pairs.map(p => p.c).join(' ');
+  document.getElementById('metrics-enc').innerHTML = `
+    <div class="metric"><div class="m-label">MENSAJE ORIGINAL</div><div class="m-val">${msg || '—'}</div></div>
+    <div class="metric"><div class="m-label">VALORES M EN GF(7)</div><div class="m-val">${pairs.map(p => p.m).join(' ') || '—'}</div></div>
+    <div class="metric blue"><div class="m-label">CRIPTOGRAMA C</div><div class="m-val">${crypto || '—'}</div></div>
+    <div class="metric yellow"><div class="m-label">CLAVE USADA</div><div class="m-val">K = ${K}</div></div>`;
+}
+
+// ===== DESCIFRAR =====
+function descifrar() {
+  const raw = document.getElementById('inp-crypto').value.trim();
+  const K = +document.getElementById('inp-k2').value;
+  const nums = raw.split(/\s+/).map(Number).filter(n => !isNaN(n) && n >= 0 && n < GF);
+  const pairs = nums.map(c => { const m = ((c - K) + GF) % GF; return { c, m, ch: valChars(m)[0] || '?' }; });
+  document.getElementById('grid-dec').innerHTML = pairs.map(p =>
+    `<div class="char-cell dec">
+      <span class="cc-char">${p.ch === ' ' ? '⎵' : p.ch}</span>
+      <span class="cc-num">C=${p.c} M=${p.m}</span>
+    </div>`
+  ).join('');
+  document.getElementById('steps-dec').innerHTML = pairs.map(p =>
+    `<span style="color:var(--muted);">C=${p.c}, (${p.c}-${K}+7) mod 7 =</span> ` +
+    `<span style="color:var(--accent2);font-weight:700;">M=${p.m}</span> ` +
+    `<span style="color:var(--text);">→ ${p.ch === ' ' ? '(espacio)' : p.ch}</span><br>`
+  ).join('');
+  const decoded = pairs.map(p => p.ch).join('');
+  document.getElementById('metrics-dec').innerHTML = `
+    <div class="metric"><div class="m-label">CRIPTOGRAMA RECIBIDO</div><div class="m-val">${nums.join(' ') || '—'}</div></div>
+    <div class="metric"><div class="m-label">VALORES M RECUPERADOS</div><div class="m-val">${pairs.map(p => p.m).join(' ') || '—'}</div></div>
+    <div class="metric green"><div class="m-label">MENSAJE DESCIFRADO</div><div class="m-val">${decoded || '—'}</div></div>
+    <div class="metric yellow"><div class="m-label">CLAVE USADA</div><div class="m-val">K = ${K}</div></div>`;
+}
+
+// ===== TABLAS =====
+function renderTablas() {
+  let h = '<table><tr><th>+</th>';
+  for (let j = 0; j < GF; j++) h += `<th>${j}</th>`;
+  h += '</tr>';
+  for (let i = 0; i < GF; i++) {
+    h += `<tr><th>${i}</th>`;
+    for (let j = 0; j < GF; j++) {
+      const v = (i + j) % GF;
+      const cls = i === j ? 'cell-diag' : (i === 0 || j === 0) ? 'cell-hl' : '';
+      h += `<td${cls ? ' class="' + cls + '"' : ''}>${v}</td>`;
+    }
+    h += '</tr>';
+  }
+  document.getElementById('tabla-suma').innerHTML = h + '</table>';
+
+  let h2 = '<table><tr><th>×</th>';
+  for (let j = 0; j < GF; j++) h2 += `<th>${j}</th>`;
+  h2 += '</tr>';
+  for (let i = 0; i < GF; i++) {
+    h2 += `<tr><th>${i}</th>`;
+    for (let j = 0; j < GF; j++) {
+      const v = (i * j) % GF;
+      const cls = v === 1 && i !== 0 && j !== 0 ? 'cell-diag' : (i === 1 || j === 1) ? 'cell-hl' : '';
+      h2 += `<td${cls ? ' class="' + cls + '"' : ''}>${v}</td>`;
+    }
+    h2 += '</tr>';
+  }
+  document.getElementById('tabla-mult').innerHTML = h2 + '</table>';
+
+  document.getElementById('inv-ad').innerHTML = Array.from({ length: GF }, (_, i) => {
+    const inv = (GF - i) % GF;
+    return `<div class="mapeo-cell"><div class="mc-char">${i}</div><div class="mc-num" style="background:rgba(108,99,255,0.15);color:#a09bff;">-inv:${inv}</div></div>`;
+  }).join('');
+
+  document.getElementById('inv-mul').innerHTML = Array.from({ length: GF }, (_, i) => {
+    if (i === 0) return `<div class="mapeo-cell" style="opacity:0.3;"><div class="mc-char">0</div><div class="mc-num" style="background:var(--surface2);color:var(--muted);">—</div></div>`;
+    let inv = -1;
+    for (let j = 1; j < GF; j++) if ((i * j) % GF === 1) { inv = j; break; }
+    return `<div class="mapeo-cell"><div class="mc-char">${i}</div><div class="mc-num" style="background:rgba(0,229,160,0.15);color:var(--accent2);">inv:${inv}</div></div>`;
+  }).join('');
+}
+
+// ===== JUEGO =====
+function actualizarJuego() {
+  const msg = (document.getElementById('game-msg').value || '').toUpperCase();
+  const K = +document.getElementById('game-k').value;
+  const steps = [];
+  for (const ch of msg) {
+    const m = charVal(ch);
+    if (m !== null) {
+      const c = (m + K) % GF;
+      const back = ((c - K) + GF) % GF;
+      steps.push({ ch, m, c, back, rec: valChars(back)[0] || '?' });
+    }
+  }
+  const crypto = steps.map(s => s.c).join(' ');
+  const recovered = steps.map(s => s.rec).join('');
+
+  document.getElementById('game-metrics').innerHTML = `
+    <div class="metrics" style="margin-top:14px;">
+      <div class="metric"><div class="m-label">CAMPO FINITO</div><div class="m-val">GF(7)</div></div>
+      <div class="metric yellow"><div class="m-label">CLAVE COMPARTIDA</div><div class="m-val">K = ${K}</div></div>
+      <div class="metric"><div class="m-label">SÍMBOLOS PROCESADOS</div><div class="m-val">${steps.length}</div></div>
+      <div class="metric green"><div class="m-label">MENSAJE RECUPERADO</div><div class="m-val">${recovered || '—'}</div></div>
+    </div>`;
+
+  document.getElementById('game-emisor').innerHTML = `
+    <p class="node-title">NODO EMISOR</p>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px;">MENSAJE ORIGINAL</p>
+    <div class="stream">${steps.map(s => `<div class="sym s-yellow">${s.ch === ' ' ? '⎵' : s.ch}</div>`).join('')}</div>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:12px 0 8px;">APLICA C=(M+${K}) mod 7</p>
+    <div class="stream">${steps.map(s => `<div class="sym s-blue">${s.c}</div>`).join('')}</div>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:10px;">Transmite → <span style="color:#a09bff;">${crypto}</span></p>`;
+
+  document.getElementById('game-receptor').innerHTML = `
+    <p class="node-title">NODO RECEPTOR</p>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-bottom:8px;">CRIPTOGRAMA RECIBIDO</p>
+    <div class="stream">${steps.map(s => `<div class="sym s-blue">${s.c}</div>`).join('')}</div>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin:12px 0 8px;">APLICA M=(C−${K}+7) mod 7</p>
+    <div class="stream">${steps.map(s => `<div class="sym s-green">${s.rec === ' ' ? '⎵' : s.rec}</div>`).join('')}</div>
+    <p style="font-family:var(--mono);font-size:11px;color:var(--muted);margin-top:10px;">Descifrado → <span style="color:var(--accent2);">${recovered || '—'}</span></p>`;
+
+  document.getElementById('game-table').innerHTML = `
+    <table>
+      <tr><th>Carácter</th><th>M</th><th>Operación cifrado</th><th>C enviado</th><th>Operación descifrado</th><th>Recuperado</th></tr>
+      ${steps.map(s => `<tr class="result-row">
+        <td><strong>${s.ch === ' ' ? '(sp)' : s.ch}</strong></td>
+        <td>${s.m}</td>
+        <td style="color:var(--muted);font-size:11px;">(${s.m}+${K}) mod 7</td>
+        <td style="color:#a09bff;font-weight:700;">${s.c}</td>
+        <td style="color:var(--muted);font-size:11px;">(${s.c}−${K}+7) mod 7</td>
+        <td><strong>${s.rec === ' ' ? '(sp)' : s.rec}</strong></td>
+      </tr>`).join('')}
+    </table>`;
+
+  const colors = ['rgba(108,99,255,0.2)','rgba(0,229,160,0.15)','rgba(255,217,61,0.15)','rgba(255,107,107,0.12)','rgba(160,155,255,0.15)','rgba(0,180,130,0.15)','rgba(200,170,50,0.15)'];
+  const tcolors = ['#a09bff','var(--accent2)','var(--accent4)','var(--accent3)','#c8c4ff','#00c882','#d4a800'];
+  document.getElementById('mapeo-imprimible').innerHTML = ALPHA.split('').map((ch, i) => {
+    const v = i % GF;
+    return `<div class="mapeo-cell">
+      <div class="mc-char">${ch === ' ' ? '⎵' : ch}</div>
+      <div class="mc-num" style="background:${colors[v]};color:${tcolors[v]};">${v}</div>
+    </div>`;
+  }).join('');
+}
+
+// ===== QUIZ =====
+let quizData = [], qIdx = 0, qScore = 0;
+
+function shuffle(a) { return a.sort(() => Math.random() - 0.5); }
+
+function genQuiz() {
+  const K = 4;
+  const qs = [];
+  for (let i = 0; i < 3; i++) {
+    const M = Math.floor(Math.random() * 7);
+    const C = (M + K) % 7;
+    const wrong = new Set();
+    while (wrong.size < 3) { const w = Math.floor(Math.random() * 7); if (w !== C) wrong.add(w); }
+    qs.push({ q: `Cifrar en GF(7):\nM = ${M}, K = ${K}\n¿Cuánto vale C = (M + K) mod 7?`, ans: C, opts: shuffle([C, ...wrong]), tipo: 'cifrar' });
+  }
+  for (let i = 0; i < 3; i++) {
+    const C = Math.floor(Math.random() * 7);
+    const M = ((C - K) + 7) % 7;
+    const wrong = new Set();
+    while (wrong.size < 3) { const w = Math.floor(Math.random() * 7); if (w !== M) wrong.add(w); }
+    qs.push({ q: `Descifrar en GF(7):\nC = ${C}, K = ${K}\n¿Cuánto vale M = (C − K + 7) mod 7?`, ans: M, opts: shuffle([M, ...wrong]), tipo: 'descifrar' });
+  }
+  for (let i = 0; i < 2; i++) {
+    const a = Math.floor(Math.random() * 7), b = Math.floor(Math.random() * 7);
+    const r = (a + b) % 7;
+    const wrong = new Set();
+    while (wrong.size < 3) { const w = Math.floor(Math.random() * 7); if (w !== r) wrong.add(w); }
+    qs.push({ q: `Suma en GF(7):\n${a} + ${b} = ?`, ans: r, opts: shuffle([r, ...wrong]), tipo: 'suma' });
+  }
+  for (let i = 0; i < 2; i++) {
+    const a = 1 + Math.floor(Math.random() * 6), b = 1 + Math.floor(Math.random() * 6);
+    const r = (a * b) % 7;
+    const wrong = new Set();
+    while (wrong.size < 3) { const w = Math.floor(Math.random() * 7); if (w !== r) wrong.add(w); }
+    qs.push({ q: `Multiplicación en GF(7):\n${a} × ${b} = ?`, ans: r, opts: shuffle([r, ...wrong]), tipo: 'mult' });
+  }
+  return shuffle(qs);
+}
+
+function initQuiz() {
+  quizData = genQuiz();
+  qIdx = 0; qScore = 0;
+  document.getElementById('q-total').textContent = quizData.length;
+  renderQuiz();
+}
+
+function renderQuiz() {
+  const total = quizData.length;
+  document.getElementById('q-num').textContent = Math.min(qIdx + 1, total);
+  document.getElementById('q-score').textContent = qScore;
+  document.getElementById('q-progress').style.width = (qIdx / total * 100) + '%';
+
+  if (qIdx >= total) {
+    const pct = Math.round(qScore / total * 100);
+    const stars = pct >= 90 ? '🏆' : pct >= 60 ? '✨' : '📚';
+    document.getElementById('quiz-area').innerHTML = `
+      <div style="text-align:center;padding:30px 0;">
+        <div style="font-size:52px;margin-bottom:14px;">${stars}</div>
+        <div style="font-family:var(--mono);font-size:32px;font-weight:700;color:var(--accent2);">${qScore}/${total}</div>
+        <div style="font-family:var(--mono);font-size:14px;color:var(--muted);margin:8px 0 24px;">${pct}% correcto</div>
+        <div style="font-size:16px;color:var(--text);margin-bottom:24px;">${pct >= 90 ? 'Dominio total de GF(7). Excelente trabajo.' : pct >= 60 ? 'Buen manejo del campo finito.' : 'Sigue practicando las operaciones modulares.'}</div>
+        <button class="btn btn-accent" onclick="initQuiz()">↺ Jugar de nuevo</button>
+      </div>`;
+    return;
+  }
+
+  const q = quizData[qIdx];
+  document.getElementById('quiz-area').innerHTML = `
+    <div class="quiz-question">${q.q}</div>
+    <div class="quiz-options">${q.opts.map(o => `<button class="quiz-opt" onclick="answerQuiz(${o},${q.ans})">${o}</button>`).join('')}</div>
+    <div id="quiz-fb"></div>`;
+}
+
+function answerQuiz(chosen, correct) {
+  document.querySelectorAll('.quiz-opt').forEach(b => {
+    const v = +b.textContent;
+    if (v === correct) b.classList.add(chosen === correct ? 'correct' : 'reveal-correct');
+    else if (v === chosen) b.classList.add('wrong');
+    else b.style.opacity = '0.4';
+    b.disabled = true;
+  });
+  const ok = chosen === correct;
+  if (ok) qScore++;
+  document.getElementById('q-score').textContent = qScore;
+  document.getElementById('quiz-fb').innerHTML = `
+    <div class="quiz-feedback ${ok ? 'ok' : 'fail'}">
+      ${ok ? '✓ ¡Correcto!' : '✗ Incorrecto. La respuesta es ' + correct + '.'}
+    </div>
+    <button class="btn btn-accent" style="width:100%;" onclick="qIdx++;renderQuiz();">${qIdx + 1 >= quizData.length ? 'Ver resultado →' : 'Siguiente →'}</button>`;
+}
+
+// ===== SWITCH TABS =====
+function switchTab(name) {
+  const names = ['cifrar', 'descifrar', 'tablas', 'juego', 'quiz'];
+  document.querySelectorAll('.tab').forEach((t, i) => t.classList.toggle('active', names[i] === name));
+  document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+  document.getElementById('sec-' + name).classList.add('active');
+  if (name === 'tablas') renderTablas();
+  if (name === 'juego') actualizarJuego();
+  if (name === 'quiz' && quizData.length === 0) initQuiz();
+}
+
+// Init
+cifrar();
+descifrar();
+</script>
+</body>
+</html>
